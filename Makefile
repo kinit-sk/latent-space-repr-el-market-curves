@@ -62,6 +62,16 @@ create_environment:
 data: requirements
 	$(PYTHON_INTERPRETER) curves/dataset.py
 
+## Pair Notebook (make pair_notebook NOTEBOOK_PATH="path/to/notebook.ipynb")
+.PHONY: pair_notebook
+pair_notebook:
+	jupytext --set-formats ipynb,py:percent $(NOTEBOOK_PATH)
+
+## Update Notebooks
+.PHONY: sync_notebooks
+sync_notebooks:
+	jupytext --sync notebooks/*.ipynb
+
 
 #################################################################################
 # Self Documenting Commands                                                     #

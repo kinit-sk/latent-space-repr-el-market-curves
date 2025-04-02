@@ -9,6 +9,7 @@ dependencies:
   - tqdm
   - ipython
   - jupyterlab
+  - jupytext
   - matplotlib
   - notebook
   - numpy
@@ -16,6 +17,7 @@ dependencies:
   - scikit-learn
   - ruff
   - pip:
+    - polars
     - python-dotenv
     - mkdocs
     - -e .
