@@ -1,0 +1,21 @@
+name: latent-space-repr-el-market-curves
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9.19
+  - pip
+  - typer
+  - loguru
+  - tqdm
+  - ipython
+  - jupyterlab
+  - matplotlib
+  - notebook
+  - numpy
+  - pandas
+  - scikit-learn
+  - ruff
+  - pip:
+    - python-dotenv
+    - mkdocs
+    - -e .
