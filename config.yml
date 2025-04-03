@@ -1,0 +1,9 @@
+preprocessing:
+  dataset: mibel
+  price_winsor_lower: 0.005
+  price_winsor_upper: 0.995
+  step2_stepsize: 1
+  volume_winsor_lower: 0.005
+  volume_winsor_upper: 0.995
+  step3_stepsize: 100
+  step4_r_0: 10

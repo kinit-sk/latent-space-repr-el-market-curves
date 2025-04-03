@@ -2,6 +2,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from loguru import logger
+import yaml
 
 # Load environment variables from .env file if it exists
 load_dotenv()
@@ -30,3 +31,22 @@ try:
     logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 except ModuleNotFoundError:
     pass
+
+def load_config(config_path):
+    """
+    Load configuration from YAML file
+    
+    Args:
+        config_path (str): Path to the YAML configuration file
+        
+    Returns:
+        dict: Configuration parameters
+    """
+    try:
+        with open(config_path, 'r') as file:
+            config = yaml.safe_load(file)
+        logger.success(f"Loaded config from {config_path}.")
+        return config
+    except Exception as e:
+        logger.error(f"Error loading config file: {e}")
+        raise
