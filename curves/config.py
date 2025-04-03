@@ -32,18 +32,19 @@ try:
 except ModuleNotFoundError:
     pass
 
+
 def load_config(config_path):
     """
     Load configuration from YAML file
-    
+
     Args:
         config_path (str): Path to the YAML configuration file
-        
+
     Returns:
         dict: Configuration parameters
     """
     try:
-        with open(config_path, 'r') as file:
+        with open(config_path, "r") as file:
             config = yaml.safe_load(file)
         logger.success(f"Loaded config from {config_path}.")
         return config
