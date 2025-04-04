@@ -339,6 +339,72 @@ def preprocess_dataset(
     return df, quantiles
 
 
+def preprocess_dataset_for_dim_reduct(
+    df: pl.DataFrame,
+    train_start: pl.datetime,
+    train_end: pl.datetime,
+    val_start: pl.datetime,
+    val_end: pl.datetime,
+    test_start: pl.datetime,
+    test_end: pl.datetime,
+) -> tuple:
+    """
+    Preprocess the dataset for dimensionality reduction.
+
+    Args:
+        df (pl.DataFrame): The input DataFrame.
+        train_end (pl.Datetime): The end date for the training set.
+        val_start (pl.Datetime): The start date for the validation set.
+        val_end (pl.Datetime): The end date for the validation set.
+        test_start (pl.Datetime): The start date for the test set.
+        test_end (pl.Datetime): The end date for the test set.
+
+    Returns:
+        tuple
+    """
+    logger.info("Preprocessing dataset for dimensionality reduction...")
+
+    # split the data into train, val, test
+    df_train = df.filter((pl.col("datetime") < train_end) & (pl.col("datetime") >= train_start))
+    df_val = df.filter((pl.col("datetime") < val_end) & (pl.col("datetime") >= val_start))
+    df_test = df.filter((pl.col("datetime") < test_end) & (pl.col("datetime") >= test_start))
+
+    # reshape dataframe such that rows = datetime observations and cols = N volume buckets + convert to numpy array
+    unique_dates = df_train.select(pl.col("datetime").unique()).to_numpy().flatten()
+    N = int(len(df_train) / len(unique_dates))
+    df_train_np = np.reshape(df_train.select(pl.col("price")).to_numpy(), (len(unique_dates), N))
+
+    # column means and stdevs
+    mean_cols = df_train_np.mean(axis=0)
+    sd_cols = df_train_np.std(axis=0)
+    [mean_cols.shape, sd_cols.shape]
+
+    # standardize dataframe column wise (for every bucket)
+    df_train_np = (df_train_np - mean_cols) / sd_cols
+
+    # transform the test and val set as well
+    unique_dates_val = df_val.select(pl.col("datetime").unique()).to_numpy().flatten()
+    df_val_np = np.reshape(df_val.select(pl.col("price")).to_numpy(), (len(unique_dates_val), N))
+    df_val_np = (df_val_np - mean_cols) / sd_cols
+
+    unique_dates_test = df_test.select(pl.col("datetime").unique()).to_numpy().flatten()
+    df_test_np = np.reshape(
+        df_test.select(pl.col("price")).to_numpy(), (len(unique_dates_test), N)
+    )
+    df_test_np = (df_test_np - mean_cols) / sd_cols
+
+    return (
+        df_train_np,
+        df_val_np,
+        df_test_np,
+        mean_cols,
+        sd_cols,
+        unique_dates,
+        unique_dates_val,
+        unique_dates_test,
+    )
+
+
 @app.command()
 def main(
     input_path: Path = RAW_DATA_DIR,
