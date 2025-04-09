@@ -219,18 +219,18 @@ def train_umap(
                     reconstructed * training_stds + training_means,
                 )
 
-        # Check if this is the best model so far
-        if current_mae < best_mae:
-            best_mae = current_mae
-            best_n_neighbors = n_neighbors
-            best_min_dist = min_dist
-            best_metric = metric
-            best_model = model
-            logger.success("New best model found!")
+                # Check if this is the best model so far
+                if current_mae < best_mae:
+                    best_mae = current_mae
+                    best_n_neighbors = n_neighbors
+                    best_min_dist = min_dist
+                    best_metric = metric
+                    best_model = model
+                    logger.success("New best model found!")
 
-        logger.info(
-            f"Current UMAP: number of components: {n_components}, n_neighbors: {n_neighbors}, min_dist: {min_dist}, metric: {metric}, MAE: {current_mae:.4f}, MSE: {current_mse:.4f}"
-        )
+                logger.info(
+                    f"Current UMAP: number of components: {n_components}, n_neighbors: {n_neighbors}, min_dist: {min_dist}, metric: {metric}, MAE: {current_mae:.4f}, MSE: {current_mse:.4f}"
+                )
 
     # save best params to dict
     best_params = {
