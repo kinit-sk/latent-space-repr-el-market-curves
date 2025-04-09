@@ -16,6 +16,7 @@ dependencies:
   - pandas
   - scikit-learn
   - ruff
+  - umap-learn
   - pip:
     - polars
     - python-dotenv
