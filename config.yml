@@ -25,10 +25,40 @@ dim_reduct:
     random_state: 42 # random state
     n_jobs: -1 # number of jobs to run kpca in parallel
   umap: # umap parameters
-    supply_n_components: 2 # dimension for latent space for supply curves
-    demand_n_components: 2 # dimension for latent space for demand curves
+    supply_n_components: 3 # dimension for latent space for supply curves
+    demand_n_components: 3 # dimension for latent space for demand curves
     no_of_neighbors: [10, 11, 12, 13, 14, 15] # umap hyperparameter space - number of neighbors
     metrics: [euclidean, manhattan, chebyshev] # umap hyperparameter space - distance metrics
     min_distances: [0.001, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5] # umap hyperparameter space - minimum distance to a neighbor
     random_state: 42 # random state doesnt support paralelism
     n_jobs: 1 # fixed random state supports only 1 job
+
+predictions:
+  which_curves: demand # do you want to run the prediction model for supply or demand curves?
+  which_dim_reduct_method: umap # from which method to load latent space representations
+  n_components: 3 # what is the dimension of pretrained latent space representation
+  model: lstm # which model to train (tsmixer, lstm)
+  cpu: 8
+  gpu: 1
+  hyperparameter_optimization:
+    run_name: lstm-test-d # run name for better orientation in ray tune results
+    num_samples: 5 # Number of times to sample from the hyperparameter space.(-1 for all combinations)
+    max_t: 1000 # Max time per one trial in seconds
+    patience: 10 # earlystopping after n nondecreasing epochs
+    min_delta: 0.001 # minimum improvement required to bypass earlystopping
+    tsmixer_hyperparameter_space:
+      input_chunk_length: [168, 720]
+      batch_size: [16, 32, 64, 128]
+      hidden_size: [8, 16, 32, 64]
+      num_blocks: [1, 2, 4, 6, 8]
+      dropout: [0.1, 0.3, 0.5, 0.7, 0.9]
+      learning_rate: [0.001, 0.0001]
+      random_state: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    lstm_hyperparameter_space:
+      input_chunk_length: [168, 720]
+      batch_size: [16, 32, 64, 128]
+      hidden_dim: [40, 50, 60, 70, 80, 90, 100, 110, 120]
+      n_rnn_layers: [2, 3, 4]
+      dropout: [0.1, 0.3, 0.5, 0.7, 0.9]
+      learning_rate: [0.001, 0.0001]
+      random_state: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

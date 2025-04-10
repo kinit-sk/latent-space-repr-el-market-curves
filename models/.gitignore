@@ -2,3 +2,5 @@
 *.pkl
 # yaml files
 *.yml
+# raytune files
+ray_results/
