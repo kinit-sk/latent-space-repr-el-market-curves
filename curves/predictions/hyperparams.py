@@ -108,6 +108,7 @@ def train_tsmixer(model_args, callbacks, train, val, futcov_train, futcov_val):
         n_epochs=50,
         output_chunk_length=24,
         model_name="tsmixer",
+        normalize_before=False,  # from TSMixer ext part of paper
         input_chunk_length=model_args["input_chunk_length"],
         ff_size=model_args["hidden_size"],
         hidden_size=model_args["hidden_size"],
