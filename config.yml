@@ -34,15 +34,15 @@ dim_reduct:
     n_jobs: 1 # fixed random state supports only 1 job
 
 predictions:
-  which_curves: demand # do you want to run the prediction model for supply or demand curves?
+  which_curves: supply # do you want to run the prediction model for supply or demand curves?
   which_dim_reduct_method: umap # from which method to load latent space representations
   n_components: 3 # what is the dimension of pretrained latent space representation
   model: lstm # which model to train (tsmixer, lstm)
   cpu: 8
   gpu: 1
   hyperparameter_optimization:
-    run_name: lstm-test-d # run name for better orientation in ray tune results
-    num_samples: 5 # Number of times to sample from the hyperparameter space.(-1 for all combinations)
+    run_name: mibel-lstm-umap-3-supply # run name for better orientation in ray tune results
+    num_samples: 200 # Number of times to sample from the hyperparameter space.(-1 for all combinations)
     max_t: 1000 # Max time per one trial in seconds
     patience: 10 # earlystopping after n nondecreasing epochs
     min_delta: 0.001 # minimum improvement required to bypass earlystopping
@@ -62,3 +62,8 @@ predictions:
       dropout: [0.1, 0.3, 0.5, 0.7, 0.9]
       learning_rate: [0.001, 0.0001]
       random_state: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  training:
+    run_name: mibel-lstm-umap-3-supply # run name for better orientation in wandb results
+    patience: 10 # earlystopping after n nondecreasing epochs
+    min_delta: 0.001 # minimum improvement required to bypass earlystopping
+    n_epochs: 500 # number of epochs in training

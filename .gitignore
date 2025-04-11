@@ -4,6 +4,12 @@
 # Data
 /data/
 
+# logs from Darts
+/darts_logs/
+
+# Weights & Biases logs
+/wandb/
+
 # Mac OS-specific storage files
 .DS_Store
 

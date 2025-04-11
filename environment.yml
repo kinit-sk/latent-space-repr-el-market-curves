@@ -10,20 +10,22 @@ dependencies:
   - ipython
   - jupyterlab
   - jupytext
-  - lightning
   - matplotlib
   - notebook
   - numpy
   - pandas
   - pytorch
+  - pytorch-lightning
   - scikit-learn
   - torchmetrics
   - ruff
   - u8darts-all
   - umap-learn
   - pip:
+    - plotly[express]
     - polars
     - python-dotenv
     - mkdocs
     - ray[data,train,tune,serve]
+    - wandb
     - -e .
