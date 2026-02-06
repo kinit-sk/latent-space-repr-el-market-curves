@@ -9,6 +9,20 @@ from curves.config import PROCESSED_DATA_DIR
 app = typer.Typer()
 
 
+def createList(r1, r2
+):
+    """A simple function for creating list from given range (for better code readability).
+
+    Args:
+        r1 (int): Start of the range.
+        r2 (int): End of the range (inclusive).
+
+    Returns:
+        list: List of range.
+    """
+    return list(range(r1, r2+1))
+
+
 @app.command()
 def main(
     # ---- REPLACE DEFAULT PATHS AS APPROPRIATE ----
