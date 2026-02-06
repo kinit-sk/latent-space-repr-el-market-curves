@@ -27,5 +27,6 @@ dependencies:
     - python-dotenv
     - mkdocs
     - ray[data,train,tune,serve]
+    - skorch
     - wandb
     - -e .
