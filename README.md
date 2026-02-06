@@ -4,7 +4,55 @@
     <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
 </a>
 
-A repository for reproducing the paper titled Latent Space Representation of Electricity Market Curves.
+This repository contains the code for the paper **"Latent Space Representation of Electricity Market Curves: Maintaining Structural Integrity"** by Martin Výboh, Zuzana Chladná, Gabriela Grmanová, and Mária Lucká.
+
+📄 **Paper**: [arXiv preprint](https://arxiv.org/abs/2503.11294v2)
+
+## Getting Started
+
+### Installation
+
+```bash
+conda env create -f environment.yml
+
+conda activate curves_env
+```
+
+### Running the Pipeline
+
+The dimensionality reduction pipeline consists of four main steps:
+
+1. **Train dimensionality reduction models**
+```bash
+python -m curves.dim-reduct.train
+```
+Trains PCA, kPCA, UMAP, or Autoencoder models on supply and demand curves. Model selection and hyperparameters are to be configured in `config.yml`.
+
+2. **Generate reconstructions with moving window retraining**
+```bash
+python -m curves.dim-reduct.predict
+```
+Applies trained models to test data with periodic retraining to account for potential temporal context drifts.
+
+3. **Apply isotonic transformation (optional)**
+```bash
+python -m curves.dim-reduct.isotonic_transform
+```
+Enforces monotonicity constraints on reconstructed curves using isotonic regression.
+
+4. **Evaluate reconstruction quality**
+```bash
+python -m curves.dim-reduct.evaluate
+```
+Calculates RMSE, MAE, Bias, and WAPE metrics overall and by time periods (hourly, weekday).
+
+### Configuration
+
+Edit `config.yml` to specify:
+- Dataset paths and date ranges
+- Dimensionality reduction method (pca/kpca/umap/autoencoder)
+- Number of components for supply and demand
+- Evaluation settings (retrain interval, monotonic evaluation)
 
 ## Project Organization
 
@@ -34,14 +82,15 @@ A repository for reproducing the paper titled Latent Space Representation of Ele
 ├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
 │   └── figures        <- Generated graphics and figures to be used in reporting
 │
-├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
-│                         generated with `pip freeze > requirements.txt`
+├── environment.yml   <- The requirements file for reproducing the environment
 │
 ├── setup.cfg          <- Configuration file for flake8
 │
 └── curves   <- Source code for use in this project.
     │
-    ├── __init__.py             <- Makes curves a Python module
+    ├── __init__.py
+    │
+    ├── autoencoder.py          <- Code with AutoEncoder model class definitions.
     │
     ├── config.py               <- Store useful variables and configuration
     │
@@ -49,10 +98,12 @@ A repository for reproducing the paper titled Latent Space Representation of Ele
     │
     ├── features.py             <- Code to create features for modeling
     │
-    ├── modeling                
-    │   ├── __init__.py 
-    │   ├── predict.py          <- Code to run model inference with trained models          
-    │   └── train.py            <- Code to train models
+    ├── dim-reduct              <- Dimensionality reduction pipeline
+    │   ├── __init__.py
+    │   ├── train.py            <- Train dimensionality reduction models (PCA, kPCA, UMAP, Autoencoder)
+    │   ├── predict.py          <- Generate reconstructions using trained models with moving window retraining
+    │   ├── evaluate.py         <- Calculate reconstruction metrics (RMSE, MAE, Bias, WAPE) overall and by time periods
+    │   └── isotonic_transform.py <- Apply isotonic regression to enforce monotonicity on reconstructed curves
     │
     └── plots.py                <- Code to create visualizations
 ```
