@@ -6,10 +6,13 @@ import numpy as np
 import polars as pl
 from sklearn.decomposition import PCA, KernelPCA
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+from skorch.callbacks import EarlyStopping
+import torch
 import typer
 import umap
 import yaml
 
+from curves.autoencoder import AutoEncoder, AutoEncoderNet
 from curves.config import MODELS_DIR, PROCESSED_DATA_DIR, PROJ_ROOT, load_config
 from curves.dataset import preprocess_dataset_for_dim_reduct
 
@@ -65,6 +68,62 @@ def train_pca(
     logger.success(
         f"PCA training complete. Reduced dimension is {n}, explained variance is {explained_variance:.4f}."
     )
+
+    return model, best_params
+
+
+def train_pca_fix_components(
+        df_train: np.array,
+        df_val: np.array,
+        training_means: np.array,
+        training_stds: np.array,
+        n_components: int = 2,
+        random_state: int = 42,
+) -> object:
+    """
+    Perform dimensionality reduction on the input data using the principal component analysis (PCA), with fixed number of components.
+
+    Args:
+        df_train (np.array): The training data.
+        df_val (np.array): The validation data.
+        training_means (np.array): Training data means (part of standardization).
+        training_stds (np.array): Training data standard deviations (part of standardization)
+        n_components (int, optional): Number of dimensions the PCA reduces the data to. Defaults to 2.
+        
+    Returns:
+        model
+    """  
+
+    logger.info(f"Training PCA for {n_components} components...")
+
+
+    # define the model
+    model = PCA(
+        n_components=n_components,
+        random_state=random_state,
+    )
+
+    # fit the model
+    model.fit(df_train)
+
+    # reconstruct the validation curves from the model
+    reconstructed = model.inverse_transform(model.transform(df_val))
+
+    # calculate current metrics on reconstructed validation set
+    current_mse = mean_squared_error(
+        df_val * training_stds + training_means, reconstructed * training_stds + training_means
+    )
+    current_mae = mean_absolute_error(
+        df_val * training_stds + training_means, reconstructed * training_stds + training_means
+    )
+
+    # save best params
+    best_params = {"no_params_here": None}
+
+    logger.success(
+        f"Final best PCA model: number of components: {n_components}, MAE: {current_mae:.4f}, MSE: {current_mse:.4f}"
+    )
+    logger.success("PCA training complete.")
 
     return model, best_params
 
@@ -222,6 +281,7 @@ def train_umap(
                 # Check if this is the best model so far
                 if current_mae < best_mae:
                     best_mae = current_mae
+                    best_mse = current_mse
                     best_n_neighbors = n_neighbors
                     best_min_dist = min_dist
                     best_metric = metric
@@ -240,9 +300,120 @@ def train_umap(
     }
 
     logger.success(
-        f"Final best UMAP model: number of components: {n_components}, n_neighbors: {n_neighbors}, min_dist: {min_dist}, metric: {metric}, MAE: {current_mae:.4f}, MSE: {current_mse:.4f}"
+        f"Final best UMAP model: number of components: {n_components}, n_neighbors: {best_n_neighbors}, min_dist: {best_min_dist}, metric: {best_metric}, MAE: {best_mae:.4f}, MSE: {best_mse:.4f}"
     )
     logger.success("UMAP training complete.")
+
+    return best_model, best_params
+
+
+def train_autoencoder(
+    df_train: np.array,
+    df_val: np.array,
+    training_means: np.array,
+    training_stds: np.array,
+    n_components: int = 2,
+    num_units1: list = [128, 64],
+    num_units2: list = [64, 32],
+    batch_sizes: list = [32, 64, 128],
+    lrs: list = [0.001, 0.01, 0.1],
+    random_state: int = 42,
+) -> tuple:
+    """
+    Perform dimensionality reduction on the input data using the Vanilla AutoEncoder.
+
+    Args:
+        df_train (np.array): The training data.
+        df_val (np.array): The validation data.
+        training_means (np.array): Training data means (part of standardization).
+        training_stds (np.array): Training data standard deviations (part of standardization)
+        n_components (int, optional): Number of dimensions the AutoEncoder reduces the data to. Defaults to 2.
+        num_units1 (list, optional): AutoEncoder parameter - number of neurons in the first layer - to choose from. Defaults to [128, 64].
+        num_units2 (list, optional): AutoEncoder parameter - number of neurons in the second layer - to choose from. Defaults to [64, 32].
+        batch_sizes (list, optional): AutoEncoder parameter - batch size - to choose from. Defaults to [32, 64, 128].
+        lrs (list, optional): AutoEncoder parameter - learning rate - to choose from. Defaults to [0.001, 0.01, 0.1].
+        random_state (int, optional): Random state of the PyTorch. Defaults to 42.
+
+    Returns:
+        tuple
+    """
+    torch.manual_seed(random_state)
+    torch.cuda.manual_seed(random_state)
+
+    logger.info(
+        f"Training AutoEncoder for {n_components} components and with batch_sizes: {batch_sizes}, lrs: {lrs}, num_units1: {num_units1}, num_units2: {num_units2}..."
+    )
+
+    # Initialize variables to track best model
+    best_mae = float("inf")
+    best_batch_size = None
+    best_lr = None
+    best_num_units1 = None
+    best_num_units2 = None
+    best_model = None
+
+    for batch_size in batch_sizes:
+        for lr in lrs:
+            for n1, n2 in zip(num_units1, num_units2):
+                model = AutoEncoderNet(
+                        AutoEncoder,
+                        module__input_size=df_train.shape[1],
+                        module__num_units1=n1,
+                        module__num_units2=n2,
+                        module__latent_size=n_components,
+                        max_epochs=100,
+                        batch_size=batch_size,
+                        lr=lr,
+                        callbacks=[EarlyStopping(load_best=True)],
+                    )
+
+                # Convert data to float32 to match PyTorch default
+                df_train_float = df_train.astype(np.float32)
+                df_val_float = df_val.astype(np.float32)
+
+                # fit the model
+                model.fit(df_train_float, df_train_float)
+
+                # reconstruct the validation curves from the model
+                reconstructed = model.predict(df_val_float)
+
+                # calculate current metrics on reconstructed validation set
+                current_mse = mean_squared_error(
+                    df_val * training_stds + training_means,
+                    reconstructed * training_stds + training_means,
+                )
+                current_mae = mean_absolute_error(
+                    df_val * training_stds + training_means,
+                    reconstructed * training_stds + training_means,
+                )
+
+                # Check if this is the best model so far
+                if current_mae < best_mae:
+                    best_mae = current_mae
+                    best_mse = current_mse
+                    best_batch_size = batch_size
+                    best_lr = lr
+                    best_num_units1 = n1
+                    best_num_units2 = n2
+                    best_model = model
+                    logger.success("New best model found!")
+
+                logger.info(
+                    f"Current AutoEncoder: number of components: {n_components}, batch_size: {batch_size}, lr: {lr}, num_units1: {n1}, num_units2: {n2}, MAE: {current_mae:.4f}, MSE: {current_mse:.4f}"
+                )
+
+    # save best params to dict
+    best_params = {
+        "num_units1": best_num_units1,
+        "num_units2": best_num_units2,
+        "batch_size": best_batch_size,
+        "lr": best_lr,
+    }
+
+    logger.success(
+        f"Final best AutoEncoder: number of components: {n_components}, batch_size: {best_batch_size}, lr: {best_lr}, num_units1: {best_num_units1}, num_units2: {best_num_units2}, MAE: {best_mae:.4f}, MSE: {best_mse:.4f}"
+    )
+    logger.success("AutoEncoder training complete.")
 
     return best_model, best_params
 
@@ -343,24 +514,30 @@ def main(
     # train the dimensionality reduction models
     if method == "pca":
         logger.info(f"Training {method} for supply on {dataset_prefix} dataset...")
-        model_s, hyperparams_s = train_pca(
+        model_s, hyperparams_s = train_pca_fix_components(
             df_train_s,
             df_val_s,
-            config["dim_reduct"]["pca"]["variance_threshold"],
+            means_s,
+            stds_s,
+            config["dim_reduct"]["pca"]["supply_n_components"],
+            config["dim_reduct"]["pca"]["random_state"],
         )
         logger.success(f"Training {method} for supply on {dataset_prefix} dataset complete.")
 
         logger.info(f"Training {method} for demand on {dataset_prefix} dataset...")
-        model_d, hyperparams_d = train_pca(
+        model_d, hyperparams_d = train_pca_fix_components(
             df_train_d,
             df_val_d,
-            config["dim_reduct"]["pca"]["variance_threshold"],
+            means_d,
+            stds_d,
+            config["dim_reduct"]["pca"]["demand_n_components"],
+            config["dim_reduct"]["pca"]["random_state"],
         )
         logger.success(f"Training {method} for demand on {dataset_prefix} dataset complete.")
 
-        # save n components hyperparam
-        n_components_s = hyperparams_s["n_components"]
-        n_components_d = hyperparams_d["n_components"]
+        # # save n components hyperparam
+        n_components_s = config["dim_reduct"]["pca"]["supply_n_components"]
+        n_components_d = config["dim_reduct"]["pca"]["demand_n_components"]
 
     elif method == "kpca":
         logger.info(f"Training {method} for supply on {dataset_prefix} dataset...")
@@ -428,6 +605,41 @@ def main(
         n_components_s = config["dim_reduct"]["umap"]["supply_n_components"]
         n_components_d = config["dim_reduct"]["umap"]["demand_n_components"]
 
+    elif method == "autoencoder":
+        logger.info(f"Training {method} for supply on {dataset_prefix} dataset...")
+        model_s, hyperparams_s = train_autoencoder(
+            df_train_s,
+            df_val_s,
+            means_s,
+            stds_s,
+            config["dim_reduct"]["autoencoder"]["supply_n_components"],
+            config["dim_reduct"]["autoencoder"]["num_units1"],
+            config["dim_reduct"]["autoencoder"]["num_units2"],
+            config["dim_reduct"]["autoencoder"]["batch_sizes"],
+            config["dim_reduct"]["autoencoder"]["lrs"],
+            config["dim_reduct"]["autoencoder"]["random_state"],
+        )
+        logger.success(f"Training {method} for supply on {dataset_prefix} dataset complete.")
+
+        logger.info(f"Training {method} for demand on {dataset_prefix} dataset...")
+        model_d, hyperparams_d = train_autoencoder(
+            df_train_d,
+            df_val_d,
+            means_d,
+            stds_d,
+            config["dim_reduct"]["autoencoder"]["demand_n_components"],
+            config["dim_reduct"]["autoencoder"]["num_units1"],
+            config["dim_reduct"]["autoencoder"]["num_units2"],
+            config["dim_reduct"]["autoencoder"]["batch_sizes"],
+            config["dim_reduct"]["autoencoder"]["lrs"],
+            config["dim_reduct"]["autoencoder"]["random_state"],
+        )
+        logger.success(f"Training {method} for demand on {dataset_prefix} dataset complete.")
+
+        # save n components hyperparam
+        n_components_s = config["dim_reduct"]["autoencoder"]["supply_n_components"]
+        n_components_d = config["dim_reduct"]["autoencoder"]["demand_n_components"]
+
     else:
         logger.error(f"Invalid method: {method}.")
         return
@@ -458,12 +670,20 @@ def main(
 
     logger.info(f"Transforming the data to the latent space by {method}...")
     # transform the data to the latent space
-    df_train_s = model_s.transform(df_train_s)
-    df_val_s = model_s.transform(df_val_s)
-    df_test_s = model_s.transform(df_test_s)
-    df_train_d = model_d.transform(df_train_d)
-    df_val_d = model_d.transform(df_val_d)
-    df_test_d = model_d.transform(df_test_d)
+    if method == "autoencoder":
+        df_train_s = model_s.forward(df_train_s.astype(np.float32))[1].detach().numpy()
+        df_val_s = model_s.forward(df_val_s.astype(np.float32))[1].detach().numpy()
+        df_test_s = model_s.forward(df_test_s.astype(np.float32))[1].detach().numpy()
+        df_train_d = model_d.forward(df_train_d.astype(np.float32))[1].detach().numpy()
+        df_val_d = model_d.forward(df_val_d.astype(np.float32))[1].detach().numpy()
+        df_test_d = model_d.forward(df_test_d.astype(np.float32))[1].detach().numpy()
+    else:
+        df_train_s = model_s.transform(df_train_s)
+        df_val_s = model_s.transform(df_val_s)
+        df_test_s = model_s.transform(df_test_s)
+        df_train_d = model_d.transform(df_train_d)
+        df_val_d = model_d.transform(df_val_d)
+        df_test_d = model_d.transform(df_test_d)
 
     logger.success(f"Transforming the data to the latent space by {method} complete.")
 
