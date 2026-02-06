@@ -321,9 +321,6 @@ def preprocess_dataset(
         # fill the NaNs with max of Price
         df = df.with_columns(pl.col("price").fill_null(pl.col("price").max()))
 
-    # paper Step IV
-    logger.info("Step IV: Sigmoid transformation...")
-
     # calculate price quantiles
     quantiles = df.select([pl.col("price").quantile(q).alias(f"{q}") for q in [0.1, 0.5, 0.9]])
     quantiles = quantiles.with_columns(
@@ -331,10 +328,6 @@ def preprocess_dataset(
     )
 
     logger.info(f"Calculated quantiles of price (10%, 50%, 90%): {quantiles.row(0)}")
-
-    df = price_transformation(df, quantiles, r_0=step4_r_0)
-
-    logger.success(f"Step IV: Sigmoid transformation complete. nrows={len(df)}")
 
     return df, quantiles
 
