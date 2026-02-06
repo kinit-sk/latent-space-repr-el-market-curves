@@ -17,31 +17,44 @@ preprocessing:
 dim_reduct:
   method: umap # which method to run
   pca: # pca parameters
-    variance_threshold: 0.90 # cutoff (ratio of explained variance by pca) for number of dimensions for pca
+    supply_n_components: 2 # dimension for latent space for supply curves
+    demand_n_components: 2 # dimension for latent space for demand curves
+    random_state: 42 # random state
   kpca: # kpca parameters
-    supply_n_components: 7 # dimension for latent space for supply curves
-    demand_n_components: 6 # dimension for latent space for demand curves
+    supply_n_components: 2 # dimension for latent space for supply curves
+    demand_n_components: 2 # dimension for latent space for demand curves
     kernels: [poly, rbf, sigmoid, cosine] # which kernels to iterate over when finding optimal hyperparams
     random_state: 42 # random state
     n_jobs: -1 # number of jobs to run kpca in parallel
   umap: # umap parameters
-    supply_n_components: 3 # dimension for latent space for supply curves
-    demand_n_components: 3 # dimension for latent space for demand curves
+    supply_n_components: 2 # dimension for latent space for supply curves
+    demand_n_components: 2 # dimension for latent space for demand curves
     no_of_neighbors: [10, 11, 12, 13, 14, 15] # umap hyperparameter space - number of neighbors
     metrics: [euclidean, manhattan, chebyshev] # umap hyperparameter space - distance metrics
     min_distances: [0.001, 0.01, 0.1, 0.2, 0.3, 0.4, 0.5] # umap hyperparameter space - minimum distance to a neighbor
     random_state: 42 # random state doesnt support paralelism
     n_jobs: 1 # fixed random state supports only 1 job
+  autoencoder: # autoencoder parameters
+    supply_n_components: 2 # dimension for latent space for supply curves
+    demand_n_components: 2 # dimension for latent space for demand curves
+    num_units1: [256, 128, 64, 32, 16] # number of neurons in the first layer (zipped with num_units2), traditionally 2x of num_units2
+    num_units2: [128, 64, 32, 16, 8] # number of neurons in the second layer (zipped with num_units1), traditionally 1/2 of num_units1
+    batch_sizes: [8, 16, 32, 64, 128] # batch size hyperparameter
+    lrs: [0.1, 0.01, 0.001, 0.0001] # learning rate hyperparameter
+    random_state: 42 # random state
+  evaluation: # parameters for evaluation
+    retrain_interval: 7d # how frequently to retrain the model on new data (polars compatible timedelta string)
+    evaluate_monotonic: False # whether to evaluate results with isotonic regression post-processing (files with _mono suffix)
 
 predictions:
   which_curves: supply # do you want to run the prediction model for supply or demand curves?
-  which_dim_reduct_method: umap # from which method to load latent space representations
-  n_components: 3 # what is the dimension of pretrained latent space representation
-  model: lstm # which model to train (tsmixer, lstm)
+  which_dim_reduct_method: pca # from which method to load latent space representations
+  n_components: 7 # what is the dimension of pretrained latent space representation
+  model: tsmixer # which model to train (tsmixer, lstm)
   cpu: 8
   gpu: 1
   hyperparameter_optimization:
-    run_name: mibel-lstm-umap-3-supply # run name for better orientation in ray tune results
+    run_name: mibel-tsmixer-pca-7-supply # run name for better orientation in ray tune results
     num_samples: 200 # Number of times to sample from the hyperparameter space.(-1 for all combinations)
     max_t: 1000 # Max time per one trial in seconds
     patience: 10 # earlystopping after n nondecreasing epochs
@@ -63,7 +76,7 @@ predictions:
       learning_rate: [0.001, 0.0001]
       random_state: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
   training:
-    run_name: mibel-lstm-umap-3-supply # run name for better orientation in wandb results
+    run_name: mibel-tsmixer-pca-7-supply # run name for better orientation in wandb results
     patience: 10 # earlystopping after n nondecreasing epochs
     min_delta: 0.001 # minimum improvement required to bypass earlystopping
     n_epochs: 500 # number of epochs in training
